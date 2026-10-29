@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Replay FC</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f0f4f0;
+      color: #1a2a1a;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    header {
+      background: #1a6b2a;
+      background: linear-gradient(135deg, #1a6b2a 0%, #145220 100%);
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      font-size: 2rem;
+      filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));
+    }
+
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.1;
+    }
+
+    .logo-text strong {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .logo-text span {
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.65);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .clip-counter {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 0.8rem;
+      color: #fff;
+      font-weight: 500;
+    }
+
+    .btn-refresh {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-refresh:hover { background: rgba(255,255,255,0.25); }
+    .btn-refresh:disabled { opacity: 0.4; cursor: default; }
+
+    /* Field strip decoration */
+    .field-strip {
+      height: 6px;
+      background: repeating-linear-gradient(
+        90deg,
+        #2d8a3e 0px, #2d8a3e 40px,
+        #34a34d 40px, #34a34d 80px
+      );
+    }
+
+    /* Main content */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+
+    /* States */
+    .state-box {
+      text-align: center;
+      padding: 80px 20px;
+      color: #888;
+    }
+    .state-box .icon { font-size: 3.5rem; margin-bottom: 16px; }
+    .state-box p { font-size: 1rem; color: #999; }
+    .state-box strong { color: #555; display: block; font-size: 1.1rem; margin-bottom: 6px; }
+
+    .error-box {
+      background: #fff0f0;
+      border: 1px solid #ffcccc;
+      border-radius: 10px;
+      padding: 16px 20px;
+      color: #c0392b;
+      font-size: 0.9rem;
+    }
+
+    /* Grid */
+    .section-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #4a7a4a;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #d0e0d0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    /* Card */
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05);
+      border: 1px solid #e8f0e8;
+      transition: box-shadow 0.2s, transform 0.15s;
+    }
+    .card:hover {
+      box-shadow: 0 8px 24px rgba(26,107,42,0.12), 0 2px 6px rgba(0,0,0,0.08);
+      transform: translateY(-2px);
+    }
+
+    /* Thumbnail */
+    .thumb {
+      position: relative;
+      aspect-ratio: 16/9;
+      background: #111;
+      cursor: pointer;
+      overflow: hidden;
+    }
+
+    .thumb video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .play-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.25);
+      transition: background 0.2s;
+    }
+    .thumb:hover .play-overlay { background: rgba(0,0,0,0.1); }
+
+    .play-btn {
+      width: 54px;
+      height: 54px;
+      background: #1a6b2a;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      transition: transform 0.15s, background 0.15s;
+    }
+    .play-btn svg {
+      width: 22px;
+      height: 22px;
+      fill: #fff;
+      margin-left: 3px;
+    }
+    .thumb:hover .play-btn { transform: scale(1.1); background: #2d8a3e; }
+
+    /* Card info */
+    .card-body { padding: 14px 16px 12px; }
+
+    .card-name {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #1a2a1a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 6px;
+    }
+
+    .card-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.77rem;
+      color: #8a9a8a;
+    }
+
+    .card-footer {
+      padding: 0 12px 12px;
+    }
+
+    .btn-dl {
+      display: block;
+      width: 100%;
+      text-align: center;
+      background: #f0f7f0;
+      border: 1px solid #c0dac0;
+      color: #2a6a2a;
+      padding: 8px 0;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.2s, border-color 0.2s;
+      letter-spacing: 0.3px;
+    }
+    .btn-dl:hover { background: #dff0df; border-color: #90c890; }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.88);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 20px;
+    }
+
+    .modal-inner {
+      width: 100%;
+      max-width: 980px;
+    }
+
+    .modal-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .modal-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .modal-badge {
+      background: #1a6b2a;
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    .modal-title {
+      font-size: 0.9rem;
+      color: #ccc;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .btn-close {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .btn-close:hover { background: rgba(255,255,255,0.22); }
+
+    .modal-video {
+      border-radius: 10px;
+      overflow: hidden;
+      background: #000;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+    }
+    .modal-video video {
+      width: 100%;
+      max-height: 76vh;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="logo">
+      <span class="logo-icon">⚽</span>
+      <div class="logo-text">
+        <strong>Replay FC</strong>
+        <span>Sistema de Replays</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="clip-counter" v-if="!loading && clips.length > 0">
+        {{ clips.length }} {{ clips.length === 1 ? 'replay' : 'replays' }}
+      </span>
+      <button class="btn-refresh" @click="load" :disabled="loading">
+        <span>{{ loading ? '…' : '↻' }}</span>
+        {{ loading ? 'Carregando' : 'Atualizar' }}
+      </button>
+    </div>
+  </header>
+
+  <div class="field-strip"></div>
+
+  <div class="container">
+    <div v-if="error" class="error-box">{{ error }}</div>
+
+    <div v-else-if="loading" class="state-box">
+      <div class="icon">⏳</div>
+      <strong>Carregando replays…</strong>
+    </div>
+
+    <div v-else-if="clips.length === 0" class="state-box">
+      <div class="icon">🏟️</div>
+      <strong>Nenhum replay ainda</strong>
+      <p>Pressione ENTER no sistema para capturar os últimos 30 segundos.</p>
+    </div>
+
+    <template v-else>
+      <div class="section-title">Replays recentes</div>
+      <div class="grid">
+        <div class="card" v-for="clip in clips" :key="clip.name">
+          <div class="thumb" @click="openPlayer(clip)">
+            <video :key="clip.name" :src="streamUrl(clip.name)" preload="metadata" muted
+                   @error="onVideoError($event, clip.name)"></video>
+            <div class="play-overlay">
+              <div class="play-btn">
+                <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="card-name">{{ clip.name }}</div>
+            <div class="card-meta">
+              <span>{{ formatDate(clip.last_modified) }}</span>
+              <span>{{ formatSize(clip.size) }}</span>
+            </div>
+          </div>
+          <div class="card-footer">
+            <a class="btn-dl" :href="clip.download_url">⬇ Download</a>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <!-- Player modal -->
+  <div v-show="modalOpen" class="modal-backdrop" @click.self="closePlayer">
+    <div class="modal-inner">
+      <div class="modal-top">
+        <div class="modal-meta">
+          <span class="modal-badge">⚽ Replay</span>
+          <span class="modal-title">{{ activeClip }}</span>
+        </div>
+        <button class="btn-close" @click="closePlayer">✕</button>
+      </div>
+      <div class="modal-video">
+        <video v-if="modalOpen" :key="activeUrl" :src="activeUrl"
+               controls autoplay
+               @error="onModalError($event)"></video>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const { createApp } = Vue
+
+createApp({
+  data() {
+    return {
+      clips: [],
+      loading: false,
+      error: null,
+      modalOpen: false,
+      activeClip: '',
+      activeUrl: '',
+    }
+  },
+  mounted() {
+    this.load()
+  },
+  methods: {
+    async load() {
+      this.loading = true
+      this.error = null
+      try {
+        const res = await fetch('/api/clips')
+        if (!res.ok) throw new Error(`Erro ${res.status}`)
+        this.clips = await res.json()
+      } catch (e) {
+        this.error = 'Não foi possível carregar: ' + e.message
+      } finally {
+        this.loading = false
+      }
+    },
+    streamUrl(name) {
+      return `/api/clips/${name}/stream`
+    },
+    openPlayer(clip) {
+      this.activeClip = clip.name
+      this.activeUrl = `/api/clips/${clip.name}/stream`
+      this.modalOpen = true
+    },
+    closePlayer() {
+      this.modalOpen = false
+      this.activeUrl = ''
+      this.activeClip = ''
+    },
+    onVideoError(event, name) {
+      const v = event.target
+      console.error('Erro thumbnail', name, 'code:', v.error?.code, v.error?.message)
+    },
+    onModalError(event) {
+      const v = event.target
+      console.error('Erro player', 'code:', v.error?.code, v.error?.message)
+    },
+    formatDate(iso) {
+      return new Date(iso).toLocaleString('pt-BR')
+    },
+    formatSize(bytes) {
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+    },
+  },
+}).mount('#app')
+</script>
+</body>
+</html>
