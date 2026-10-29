@@ -1,0 +1,6 @@
+# Gravador local (main.py) — não é necessário no Vercel
+opencv-python
+boto3
+python-dotenv
+imageio[ffmpeg]
+certifi

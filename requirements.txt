@@ -1,5 +1,6 @@
-opencv-python
+# Web server (Vercel)
 boto3
 python-dotenv
 flask
 flask-cors
+certifi
