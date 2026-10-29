@@ -39,6 +39,12 @@ def list_clips():
     clips = []
     for obj in resp.get("Contents", []):
         name = obj["Key"]
+        # URLs presignadas diretas — sem proxy, sem timeout do serverless
+        video_url = s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": config.R2_BUCKET_NAME, "Key": name},
+            ExpiresIn=3600,
+        )
         download_url = s3.generate_presigned_url(
             "get_object",
             Params={
@@ -52,25 +58,23 @@ def list_clips():
             "name": name,
             "size": obj["Size"],
             "last_modified": obj["LastModified"].isoformat(),
+            "video_url": video_url,
             "download_url": download_url,
         })
     clips.sort(key=lambda c: c["last_modified"], reverse=True)
     return jsonify(clips)
 
 
+# Mantido para compatibilidade local — em produção o frontend usa video_url direto
 @app.route("/api/clips/<path:filename>/stream")
 def stream_clip(filename):
-    """Proxy do vídeo — passa o range request ao Backblaze e devolve ao browser."""
     s3 = _s3()
-
     kwargs = {"Bucket": config.R2_BUCKET_NAME, "Key": filename}
     range_header = request.headers.get("Range")
     if range_header:
         kwargs["Range"] = range_header
-
     obj = s3.get_object(**kwargs)
     status = 206 if range_header else 200
-
     headers = {
         "Content-Type": "video/mp4",
         "Accept-Ranges": "bytes",
@@ -78,7 +82,6 @@ def stream_clip(filename):
     }
     if "ContentRange" in obj:
         headers["Content-Range"] = obj["ContentRange"]
-
     body = obj["Body"]
 
     def generate():
@@ -88,11 +91,7 @@ def stream_clip(filename):
                 break
             yield chunk
 
-    return Response(
-        stream_with_context(generate()),
-        status=status,
-        headers=headers,
-    )
+    return Response(stream_with_context(generate()), status=status, headers=headers)
 
 
 if __name__ == "__main__":

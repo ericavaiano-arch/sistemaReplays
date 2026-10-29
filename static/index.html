@@ -381,7 +381,7 @@
       <div class="grid">
         <div class="card" v-for="clip in clips" :key="clip.name">
           <div class="thumb" @click="openPlayer(clip)">
-            <video :key="clip.name" :src="streamUrl(clip.name)" preload="metadata" muted
+            <video :key="clip.name" :src="clip.video_url" preload="metadata" muted
                    @error="onVideoError($event, clip.name)"></video>
             <div class="play-overlay">
               <div class="play-btn">
@@ -455,12 +455,9 @@ createApp({
         this.loading = false
       }
     },
-    streamUrl(name) {
-      return `/api/clips/${name}/stream`
-    },
     openPlayer(clip) {
       this.activeClip = clip.name
-      this.activeUrl = `/api/clips/${clip.name}/stream`
+      this.activeUrl = clip.video_url
       this.modalOpen = true
     },
     closePlayer() {
